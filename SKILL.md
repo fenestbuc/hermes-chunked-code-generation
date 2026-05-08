@@ -1,7 +1,7 @@
 ---
 name: chunked-code-generation
 description: Reliably generate large scripts, files, and artifacts when Hermes tools silently truncate content. Three strategies: chunked writes, data-separation with driver scripts, and lightweight template rendering. Essential for Cloudflare Workers AI / Kimi K-2.6 users where write_file truncates at ~15K chars.
-version: 1.0.0
+version: 2.0.0
 author: Vaibhav Sharma + Hermes Agent
 license: MIT
 platforms: [linux, macos, windows]
@@ -26,7 +26,7 @@ Hermes file tools (`write_file`, `patch` with large replacements) and code execu
 
 This is most acute on **Cloudflare Workers AI with Kimi K-2.6** where `write_file` truncates around 15,000 characters.
 
-## The Solution: Three Strategies
+## The Solution: Five Strategies
 
 ### Strategy 1: Chunked File Write (Raw Text)
 
@@ -44,7 +44,26 @@ write_large_file("/path/to/output.html", content, chunk_size=12000)
 
 This writes the file in 12K-character chunks using Python file I/O. No tool truncation.
 
-### Strategy 2: Data Separation + Driver Script (Recommended for Complex Generation)
+### Strategy 2: Chunked File Write (Binary)
+
+Use when you need to write a large binary file (PDF, images, executable) from memory (like base64 chunks).
+
+```python
+from chunked_writer import write_large_binary
+b64_content = "..." # Your large base64 string
+write_large_binary("/path/to/output.pdf", b64_content, chunk_size=12000)
+```
+
+### Strategy 3: Safe Find-And-Replace
+
+The `patch` tool also fails on replacements larger than 15K characters. Use this strategy to perform targeted find-and-replace using Python I/O instead.
+
+```python
+from chunked_writer import replace_large_block
+replace_large_block("app.py", "old_large_string", "new_large_string")
+```
+
+### Strategy 4: Data Separation + Driver Script (Recommended for Complex Generation)
 
 Use when generating structured artifacts (PDFs, reports, dashboards) where static content is large but the generation logic is compact.
 
@@ -87,7 +106,7 @@ doc.build(story)
 
 **Why this works:** The data JSON can be arbitrarily large. The driver script stays under the tool limit. The generation happens inside Python, not across Hermes tool boundaries.
 
-### Strategy 3: Template Rendering
+### Strategy 5: Template Rendering
 
 Use when the output is mostly static with variable substitution (HTML landing pages, email templates, configuration files).
 
@@ -143,9 +162,11 @@ if actual < expected_chars * 0.95:
 | Scenario | Strategy | Example |
 |---|---|---|
 | Large raw text file (>15K chars) | Strategy 1: Chunked write | SQL dump, markdown doc |
-| PDF / report generation with data tables | Strategy 2: Data + driver | Profile analysis report |
-| HTML landing page with variable content | Strategy 3: Template | Marketing page, email |
-| Multi-file project scaffold | Strategy 2: Data + driver | React/Vue component tree |
+| Binary payload (PDF, image via base64) | Strategy 2: Chunked binary | Auto-generated PDF payload |
+| Large string find-and-replace | Strategy 3: Safe Replace | Replacing big JSON objects in app.py |
+| PDF / report generation with data tables | Strategy 4: Data + driver | Profile analysis report |
+| HTML landing page with variable content | Strategy 5: Template | Marketing page, email |
+| Multi-file project scaffold | Strategy 4: Data + driver | React/Vue component tree |
 
 ## Real-World Example: X Profile Analysis Report
 
@@ -187,6 +208,6 @@ chunked-code-generation/
 
 ## Open-Source
 
-This skill is maintained at: https://github.com/Kubar-Labs/hermes-chunked-code-generation
+This skill is maintained at: https://github.com/fenestbuc/hermes-chunked-code-generation
 
 Contributions welcome: additional strategies, provider-specific limit data, more examples.
